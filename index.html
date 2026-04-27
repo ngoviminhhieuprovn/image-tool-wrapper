@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Công Cụ Cắt & Đóng Dấu Ảnh Hàng Loạt</title>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+
+  <style>
+    :root {
+      --bg-color: #f4f7f6;
+      --panel-bg: #ffffff;
+      --text-main: #333333;
+      --text-muted: #666666;
+      --border-color: #e0e0e0;
+      --primary: #0066ff;
+      --primary-hover: #0052cc;
+      --success: #10b981;
+    }
+
+    /* Dark Mode (Kích hoạt khi có class .drK ở body hoặc wrapper) */
+    .drK {
+      --bg-color: #121212;
+      --panel-bg: #1e1e1e;
+      --text-main: #f0f0f0;
+      --text-muted: #aaaaaa;
+      --border-color: #333333;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+    }
+
+    body { margin: 0; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: var(--bg-color); color: var(--text-main); }
+
+    .image-tool-wrapper {
+      max-width: 1200px;
+      margin: 30px auto;
+      display: grid;
+      grid-template-columns: 350px 1fr;
+      gap: 20px;
+      padding: 0 20px;
+      box-sizing: border-box;
+    }
+
+    .panel {
+      background: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    }
+
+    .panel-title { margin-top: 0; margin-bottom: 20px; font-size: 18px; border-bottom: 2px solid var(--border-color); padding-bottom: 10px; }
+
+    .tool-group { margin-bottom: 18px; }
+    .tool-group label { display: block; font-weight: 600; margin-bottom: 8px; font-size: 14px; }
+    
+    input[type="file"]::file-selector-button {
+      background: var(--border-color); border: none; padding: 8px 12px; border-radius: 6px; color: var(--text-main); cursor: pointer; margin-right: 10px;
+    }
+    input[type="file"], select, input[type="number"] {
+      width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box;
+      background: var(--bg-color); color: var(--text-main); font-family: inherit;
+    }
+    
+    .flex-row { display: flex; gap: 10px; }
+    .flex-row > div { flex: 1; }
+
+    .btn-process {
+      background: var(--primary); color: white; border: none; padding: 14px 20px;
+      font-size: 16px; border-radius: 8px; cursor: pointer; width: 100%;
+      font-weight: bold; transition: all 0.2s; box-shadow: 0 4px 12px rgba(0, 102, 255, 0.3);
+    }
+    .btn-process:hover { background: var(--primary-hover); transform: translateY(-1px); }
+
+    /* Editor Area */
+    .editor-container {
+      display: flex; flex-direction: column; gap: 15px; height: 100%;
+    }
+    .preview-box {
+      width: 100%; height: 450px; background: var(--bg-color); border: 2px dashed var(--border-color);
+      border-radius: 12px; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative;
+    }
+    .preview-box img { max-width: 100%; max-height: 100%; display: block; }
+    .empty-text { color: var(--text-muted); font-weight: 500; position: absolute; z-index: 0; pointer-events: none;}
+
+    /* Thumbnails */
+    .thumbnail-list {
+      display: flex; gap: 10px; overflow-x: auto; padding: 10px 0;
+    }
+    .thumb-item {
+      width: 60px; height: 60px; border-radius: 6px; object-fit: cover; cursor: pointer;
+      border: 2px solid transparent; opacity: 0.6; transition: 0.2s;
+    }
+    .thumb-item:hover { opacity: 1; }
+    .thumb-item.active { border-color: var(--primary); opacity: 1; box-shadow: 0 0 8px var(--primary); }
+
+    #status-msg { margin-top: 15px; font-weight: bold; text-align: center; font-size: 14px; }
+
+    @media (max-width: 850px) {
+      .image-tool-wrapper { grid-template-columns: 1fr; }
+      .preview-box { height: 350px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="image-tool-wrapper">
+  <div class="panel">
+    <h3 class="panel-title">⚙️ Cài Đặt Xử Lý Ảnh</h3>
+    
+    <div class="tool-group">
+      <label>1. Tải ảnh lên (Chọn nhiều ảnh)</label>
+      <input type="file" id="input-images" accept="image/*" multiple onchange="handleImageUpload(event)">
+    </div>
+
+    <div class="tool-group">
+      <label>2. Tỷ lệ & Kích thước khung cắt</label>
+      <select id="crop-mode" onchange="updateCropMode()">
+        <option value="none">Tự do (Kéo thả tuỳ ý)</option>
+        
+        <option value="ratio_16_9">Tỷ lệ 16:9 (Youtube/Facebook)</option>
+        <option value="ratio_9_16">Tỷ lệ 9:16 (Tiktok/Reels/Shorts)</option>
+        <option value="ratio_1_1">Tỷ lệ 1:1 (Vuông)</option>
+        <option value="ratio_4_3">Tỷ lệ 4:3 (Màn hình máy tính cũ)</option>
+        <option value="ratio_3_4">Tỷ lệ 3:4 (Ảnh chân dung)</option>
+        <option value="ratio_3_2">Tỷ lệ 3:2 (Chuẩn máy ảnh)</option>
+        <option value="ratio_5_4">Tỷ lệ 5:4</option>
+        
+        <option value="ratio_5_2">Tỷ lệ 5:2 (Ảnh bìa Facebook nhóm/Panorama)</option>
+        <option value="ratio_2_1">Tỷ lệ 2:1 (Twitter/X Post)</option>
+        <option value="ratio_21_9">Tỷ lệ 21:9 (Màn hình UltraWide)</option>
+        
+        <option value="pixel">Cắt theo Pixel (Xuất size cố định)</option>
+      </select>
+    </div>
+
+    <div class="tool-group flex-row" id="custom-pixel-group" style="display: none;">
+      <div>
+        <label>Rộng (px)</label>
+        <input type="number" id="custom-w" value="800" min="10" onchange="updateCropMode()">
+      </div>
+      <div>
+        <label>Cao (px)</label>
+        <input type="number" id="custom-h" value="600" min="10" onchange="updateCropMode()">
+      </div>
+    </div>
+
+    <div class="tool-group">
+      <label>3. Đóng dấu Watermark (Tùy chọn)</label>
+      <input type="file" id="input-watermark" accept="image/png">
+      <div style="margin-top: 10px;">
+        <label>Vị trí đóng dấu:</label>
+        <select id="watermark-pos">
+          <option value="br">Góc dưới phải</option>
+          <option value="bl">Góc dưới trái</option>
+          <option value="tr">Góc trên phải</option>
+          <option value="tl">Góc trên trái</option>
+          <option value="center">Chính giữa</option>
+        </select>
+      </div>
+    </div>
+
+    <button class="btn-process" onclick="processImages()">🚀 Xử Lý & Tải ZIP</button>
+    <div id="status-msg"></div>
+  </div>
+
+  <div class="panel editor-container">
+    <h3 class="panel-title">✂️ Trình Cắt Ảnh Trực Quan</h3>
+    <div class="preview-box">
+      <span class="empty-text" id="empty-text">Vui lòng tải ảnh lên để bắt đầu...</span>
+      <img id="main-editor-image" style="display: none;">
+    </div>
+    <div class="thumbnail-list" id="thumb-list">
+      </div>
+  </div>
+</div>
+
+<script>
+  let filesData = []; // Lưu trữ mảng đối tượng: { file, url, cropData, imgObj }
+  let currentIndex = -1;
+  let cropper = null;
+
+  // 1. Quản lý thay đổi chế độ cắt
+  function updateCropMode() {
+    const mode = document.getElementById('crop-mode').value;
+    const pixelGroup = document.getElementById('custom-pixel-group');
+    
+    let aspectRatio = NaN; // Tự do
+
+    if (mode.startsWith('ratio_')) {
+      pixelGroup.style.display = 'none';
+      const parts = mode.split('_');
+      aspectRatio = parseInt(parts[1]) / parseInt(parts[2]);
+    } else if (mode === 'pixel') {
+      pixelGroup.style.display = 'flex';
+      const w = parseInt(document.getElementById('custom-w').value) || 1;
+      const h = parseInt(document.getElementById('custom-h').value) || 1;
+      aspectRatio = w / h;
+    } else {
+      pixelGroup.style.display = 'none';
+    }
+
+    // Cập nhật lại cropper nếu đang có
+    if (cropper) {
+      cropper.setAspectRatio(aspectRatio);
+    }
+  }
+
+  // Lấy tỷ lệ cho Cropper.js dựa theo select box
+  function getCurrentRatio() {
+    const mode = document.getElementById('crop-mode').value;
+    if (mode.startsWith('ratio_')) {
+      const parts = mode.split('_');
+      return parseInt(parts[1]) / parseInt(parts[2]);
+    } else if (mode === 'pixel') {
+      const w = parseInt(document.getElementById('custom-w').value) || 1;
+      const h = parseInt(document.getElementById('custom-h').value) || 1;
+      return w / h;
+    }
+    return NaN; // Tự do
+  }
+
+  // 2. Xử lý khi Upload ảnh
+  async function handleImageUpload(e) {
+    const files = e.target.files;
+    if (files.length === 0) return;
+
+    // Reset dữ liệu cũ
+    filesData = [];
+    document.getElementById('thumb-list').innerHTML = '';
+    
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const url = URL.createObjectURL(file);
+      filesData.push({
+        file: file,
+        url: url,
+        name: file.name,
+        cropData: null // Lưu vị trí khung cắt người dùng đã chọn cho từng ảnh
+      });
+
+      // Tạo Thumbnail
+      const img = document.createElement('img');
+      img.src = url;
+      img.className = 'thumb-item';
+      img.onclick = () => selectImage(i);
+      img.id = `thumb-${i}`;
+      document.getElementById('thumb-list').appendChild(img);
+    }
+
+    document.getElementById('empty-text').style.display = 'none';
+    selectImage(0); // Mặc định mở ảnh đầu tiên
+  }
+
+  // 3. Chuyển đổi ảnh trong trình Editor
+  function selectImage(index) {
+    // Lưu lại data cắt của ảnh trước đó (nếu có)
+    if (cropper && currentIndex >= 0) {
+      filesData[currentIndex].cropData = cropper.getData(true);
+    }
+
+    currentIndex = index;
+
+    // Cập nhật giao diện thumbnail active
+    document.querySelectorAll('.thumb-item').forEach(el => el.classList.remove('active'));
+    document.getElementById(`thumb-${index}`).classList.add('active');
+
+    // Khởi tạo lại Cropper cho ảnh mới
+    const imageElement = document.getElementById('main-editor-image');
+    imageElement.style.display = 'block';
+    imageElement.src = filesData[index].url;
+
+    if (cropper) { cropper.destroy(); }
+
+    cropper = new Cropper(imageElement, {
+      aspectRatio: getCurrentRatio(),
+      viewMode: 1,
+      autoCropArea: 0.9,
+      ready() {
+        // Nếu ảnh này đã từng được chỉnh khung cắt bằng tay, khôi phục lại vị trí đó
+        if (filesData[index].cropData) {
+          cropper.setData(filesData[index].cropData);
+        }
+      }
+    });
+  }
+
+  // Hàm load file url thành đối tượng image để vẽ lên Canvas
+  function loadImgObj(url) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = url;
+    });
+  }
+
+  // 4. Hàm xử lý hàng loạt & Xuất ZIP
+  async function processImages() {
+    const wmFile = document.getElementById('input-watermark').files[0];
+    const cropMode = document.getElementById('crop-mode').value;
+    const wmPos = document.getElementById('watermark-pos').value;
+    const statusMsg = document.getElementById('status-msg');
+
+    if (filesData.length === 0) {
+      alert("Vui lòng tải lên ít nhất 1 hình ảnh để bắt đầu!"); return;
+    }
+
+    // Cập nhật lại data crop của ảnh ĐANG MỞ trực tiếp trên màn hình
+    if (cropper && currentIndex >= 0) {
+      filesData[currentIndex].cropData = cropper.getData(true);
+    }
+
+    statusMsg.innerText = "Đang xử lý... Vui lòng đợi!";
+    statusMsg.style.color = "#ff9800";
+    
+    let watermarkImg = null;
+    if (wmFile) {
+      const wmUrl = URL.createObjectURL(wmFile);
+      watermarkImg = await loadImgObj(wmUrl);
+    }
+
+    const zip = new JSZip();
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+
+    for (let i = 0; i < filesData.length; i++) {
+      const data = filesData[i];
+      const img = await loadImgObj(data.url);
+      
+      let sX = 0, sY = 0, sW = img.width, sH = img.height;
+      let dW = img.width, dH = img.height;
+
+      // Logic Cắt Ảnh: 
+      // 1. Nếu ảnh đã được chỉnh khung bằng tay (có cropData) -> Dùng chính xác tọa độ đó. 
+      // 2. Nếu chưa kéo khung -> Tự động center-crop dựa theo tỷ lệ đang chọn ở menu.
+      if (data.cropData) {
+        sX = data.cropData.x; sY = data.cropData.y;
+        sW = data.cropData.width; sH = data.cropData.height;
+      } else {
+        const targetRatio = getCurrentRatio();
+        if (!isNaN(targetRatio)) {
+          const imgRatio = img.width / img.height;
+          if (imgRatio > targetRatio) {
+            sH = img.height; sW = sH * targetRatio; sX = (img.width - sW) / 2;
+          } else {
+            sW = img.width; sH = sW / targetRatio; sY = (img.height - sH) / 2;
+          }
+        }
+      }
+
+      // Logic Kích Thước Xuất (Output Size):
+      // Nếu chế độ là "Pixel", ép kích thước canvas đầu ra thành kích thước đã nhập. 
+      // Ngược lại, giữ nguyên kích thước của vùng ảnh vừa được cắt (chất lượng cao nhất).
+      if (cropMode === 'pixel') {
+        dW = parseInt(document.getElementById('custom-w').value) || sW;
+        dH = parseInt(document.getElementById('custom-h').value) || sH;
+      } else {
+        dW = sW; dH = sH;
+      }
+
+      canvas.width = dW;
+      canvas.height = dH;
+      
+      // Vẽ ảnh chính lên canvas
+      ctx.drawImage(img, sX, sY, sW, sH, 0, 0, dW, dH);
+
+      // Đóng dấu Watermark lên ảnh đã cắt
+      if (watermarkImg) {
+        const wmWidth = watermarkImg.width;
+        const wmHeight = watermarkImg.height;
+        const padding = 20; // Khoảng cách từ logo tới viền ảnh (pixel)
+        let x = 0, y = 0;
+
+        switch(wmPos) {
+          case 'tl': x = padding; y = padding; break;
+          case 'tr': x = dW - wmWidth - padding; y = padding; break;
+          case 'bl': x = padding; y = dH - wmHeight - padding; break;
+          case 'br': x = dW - wmWidth - padding; y = dH - wmHeight - padding; break;
+          case 'center': x = (dW - wmWidth) / 2; y = (dH - wmHeight) / 2; break;
+        }
+        ctx.drawImage(watermarkImg, x, y, wmWidth, wmHeight);
+      }
+
+      // Chuyển canvas thành file PNG và nén vào ZIP
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      const newName = data.name.replace(/\.[^/.]+$/, "") + "_edited.png";
+      zip.file(newName, blob);
+    }
+
+    // Xuất file ZIP ra cho người dùng tải về
+    zip.generateAsync({ type: "blob" }).then(function(content) {
+      saveAs(content, "images_processed.zip");
+      statusMsg.innerText = "✅ Đã hoàn tất! Trình duyệt đang tải file ZIP về.";
+      statusMsg.style.color = "var(--success)";
+    });
+  }
+</script>
+
+</body>
+</html>
