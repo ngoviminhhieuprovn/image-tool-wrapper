@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Công Cụ Cắt Ảnh Hàng Loạt & Chèn Watermark</title>
+    <title>Công Cụ Cắt Ảnh Hàng Loạt & Chèn Watermark (Đã Sửa Lỗi)</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
     <style>
@@ -75,11 +75,12 @@
         }
         button:hover { background-color: var(--primary-hover); }
         button.secondary {
-            background-color: #64748b;
+            background-color: #e2e8f0;
+            color: #1e293b;
+            margin-bottom: 5px;
         }
-        button.secondary:hover { background-color: #475569; }
+        button.secondary:hover { background-color: #cbd5e1; }
         
-        /* Khu vực hiển thị ảnh cắt */
         .workspace {
             display: flex;
             flex-direction: column;
@@ -101,22 +102,29 @@
         }
         .file-list {
             background: var(--panel);
-            padding: 15px;
+            padding: 10px;
             border-radius: 8px;
-            max-height: 150px;
+            max-height: 180px;
             overflow-y: auto;
             border: 1px solid #e2e8f0;
+            margin-top: 8px;
         }
         .file-item {
             display: flex;
             justify-content: space-between;
-            padding: 6px 0;
+            padding: 8px;
             border-bottom: 1px solid #f1f5f9;
             font-size: 13px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .file-item:hover {
+            background-color: #f1f5f9;
         }
         .file-item.active {
             font-weight: bold;
-            color: var(--primary);
+            color: white;
+            background-color: var(--primary);
         }
         #watermarkPreview {
             max-width: 100px;
@@ -125,11 +133,17 @@
             display: none;
             border: 1px dashed #cbd5e1;
         }
+        .nav-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
     </style>
 </head>
 <body>
 
-<h1 style="text-align: center; margin-bottom: 30px;">Công Cụ Cắt Ảnh Hàng Loạt & Watermark</h1>
+<h1 style="text-align: center; margin-bottom: 30px;">Công Cụ Cắt Ảnh Hàng Loạt & Watermark v2</h1>
 
 <div class="container">
     <div class="panel">
@@ -140,8 +154,14 @@
             <input type="file" id="imageInput" multiple accept="image/*">
         </div>
 
+        <label>Danh sách ảnh (Bấm để chọn ảnh chỉnh)</label>
         <div class="file-list" id="fileList">
             <span style="color: #94a3b8; font-size: 13px;">Chưa có ảnh nào được tải lên...</span>
+        </div>
+
+        <div class="nav-buttons" id="navWrapper" style="display: none;">
+            <button id="prevBtn" class="secondary">◀ Ảnh trước</button>
+            <button id="nextBtn" class="secondary">Ảnh tiếp ▶</button>
         </div>
 
         <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
@@ -149,13 +169,13 @@
         <div class="form-group">
             <label>2. Tỷ lệ khung hình (Aspect Ratio)</label>
             <select id="aspectRatioSelect">
-                <option value="1.7777">16:9 (Giao diện chuẩn / Video)</option>
-                <option value="2.5">5:2 (Giao diện Blog của bạn)</option>
+                <option value="1.7777">16:9 (Chuẩn Video)</option>
+                <option value="2.5">5:2 (Chuẩn Blog của bạn)</option>
                 <option value="1.6666">5:3</option>
-                <option value="1.3333">4:3 (Ảnh cổ điển)</option>
-                <option value="1">1:1 (Ảnh vuông Instagram)</option>
+                <option value="1.3333">4:3 (Cổ điển)</option>
+                <option value="1">1:1 (Ảnh vuông)</option>
                 <option value="0.5625">9:16 (TikTok / Story)</option>
-                <option value="custom">Tùy chỉnh Pixel xuất ra (Kéo tự do)</option>
+                <option value="custom">Tùy chỉnh Pixel xuất ra</option>
                 <option value="free">Tự do hoàn toàn (Không khóa tỷ lệ)</option>
             </select>
         </div>
@@ -189,21 +209,20 @@
         </div>
 
         <div class="form-group">
-            <label>Kích thước Watermark (Bằng % so với ảnh gốc)</label>
+            <label>Kích thước Watermark (% so với ảnh gốc)</label>
             <input type="number" id="wmSize" value="15" min="5" max="50">
         </div>
 
-        <button id="nextBtn" class="secondary" style="display:none;">Lưu cấu hình & Ảnh tiếp theo ➔</button>
-        <button id="downloadAllBtn">Xử Lý & Tải Toàn Bộ Dạng .PNG</button>
+        <button id="downloadAllBtn" style="margin-top: 20px; background-color: #10b981;">Xử Lý & Tải Toàn Bộ (.PNG)</button>
     </div>
 
     <div class="workspace">
         <div class="cropper-area">
             <div id="noImageText" style="color: #64748b; font-weight: 500;">Hãy chọn ảnh ở thanh bên trái để bắt đầu điều chỉnh</div>
-            <img id="imageContainer" src="" alt="Cắt ảnh">
+            <img id="imageContainer" src="" alt="Cắt ảnh" style="display: none;">
         </div>
         <div style="background: #fff; padding: 15px; border-radius: 8px; font-size: 13px; color: #64748b; border: 1px solid #e2e8f0;">
-            <strong>💡 Hướng dẫn nhanh:</strong> Bạn có thể dùng chuột kéo khung lưới để di chuyển vị trí cắt, kéo các góc để thu phóng khung hình. Nếu chọn "Tùy chỉnh Pixel", công cụ sẽ tự động xuất ra chuẩn xác kích cỡ pixel bạn điền mà không làm méo hình.
+            <strong>💡 Tính năng mới bổ sung:</strong> Giờ đây bạn có thể <strong>bấm trực tiếp vào tên ảnh</strong> ở danh sách bên trái để nhảy đến ảnh cần sửa. Khung cắt của mỗi tấm ảnh sẽ được tự động lưu độc lập ngay khi bạn di chuyển sang tấm khác hoặc khi thay đổi vị trí khung lưới.
         </div>
     </div>
 </div>
@@ -213,7 +232,7 @@
     let currentIndex = 0;
     let cropper = null;
     let watermarkImage = null;
-    const cropDataStorage = {}; // Lưu lại vị trí đã cắt của từng bức ảnh
+    const cropDataStorage = {}; // Nơi lưu trữ tọa độ KHUNG CẮT ĐỘC LẬP của từng bức ảnh
 
     const imageInput = document.getElementById('imageInput');
     const fileList = document.getElementById('fileList');
@@ -221,16 +240,18 @@
     const pixelInputsWrapper = document.getElementById('pixelInputsWrapper');
     const imageContainer = document.getElementById('imageContainer');
     const noImageText = document.getElementById('noImageText');
+    const navWrapper = document.getElementById('navWrapper');
+    const prevBtn = document.getElementById('prevBtn');
     const nextBtn = document.getElementById('nextBtn');
     const downloadAllBtn = document.getElementById('downloadAllBtn');
     const watermarkInput = document.getElementById('watermarkInput');
     const watermarkPreview = document.getElementById('watermarkPreview');
 
-    // 1. Lắng nghe sự kiện đổi Tỷ lệ khung hình
+    // Theo dõi thay đổi tỷ lệ
     aspectRatioSelect.addEventListener('change', function() {
         if (this.value === 'custom') {
             pixelInputsWrapper.style.display = 'block';
-            if (cropper) cropper.setAspectRatio(document.getElementById('outWidth').value / document.getElementById('outHeight').value);
+            updateCustomRatio();
         } else if (this.value === 'free') {
             pixelInputsWrapper.style.display = 'none';
             if (cropper) cropper.setAspectRatio(NaN);
@@ -251,20 +272,19 @@
         }
     }
 
-    // 2. Xử lý tải ảnh hàng loạt lên
+    // Tải ảnh lên hàng loạt
     imageInput.addEventListener('change', function(e) {
         filesArray = Array.from(e.target.files);
         if (filesArray.length === 0) return;
+        
+        // Reset bộ lưu trữ dữ liệu cũ
+        for (let prop in cropDataStorage) { delete cropDataStorage[prop]; }
         
         currentIndex = 0;
         renderFileList();
         initCropper(currentIndex);
         
-        if (filesArray.length > 1) {
-            nextBtn.style.display = 'block';
-        } else {
-            nextBtn.style.display = 'none';
-        }
+        navWrapper.style.display = filesArray.length > 1 ? 'grid' : 'none';
     });
 
     function renderFileList() {
@@ -272,17 +292,31 @@
         filesArray.forEach((file, index) => {
             const div = document.createElement('div');
             div.className = `file-item ${index === currentIndex ? 'active' : ''}`;
-            div.innerHTML = `<span>${index + 1}. ${file.name}</span> <span>(Chờ cắt)</span>`;
+            div.innerHTML = `<span>${index + 1}. ${file.name}</span>`;
+            
+            // Cho phép click trực tiếp vào tên file để chuyển ảnh cần sửa
+            div.addEventListener('click', () => {
+                if (index !== currentIndex) {
+                    saveCurrentCropData(); // Lưu lại vị trí ảnh hiện tại trước khi chuyển
+                    currentIndex = index;
+                    initCropper(currentIndex);
+                }
+            });
             fileList.appendChild(div);
         });
     }
 
-    // 3. Khởi tạo bộ công cụ kéo thả cắt ảnh (Cropper)
+    // Hàm quan trọng: Lưu lại tọa độ khung cắt của ảnh hiện tại trước khi bị hủy (destroy)
+    function saveCurrentCropData() {
+        if (cropper) {
+            cropDataStorage[currentIndex] = cropper.getData();
+        }
+    }
+
+    // Khởi tạo bộ công cụ cắt ảnh Cropper
     function initCropper(index) {
         if (cropper) {
-            // Lưu lại vị trí khung hiện tại trước khi đổi ảnh
-            cropDataStorage[currentIndex] = cropper.getData();
-            cropper.destroy();
+            cropper.destroy(); // Hủy thực thể cũ để giải phóng bộ nhớ
         }
 
         const file = filesArray[index];
@@ -303,32 +337,52 @@
 
             cropper = new Cropper(imageContainer, {
                 aspectRatio: ratio,
-                viewMode: 1, // Không cho khung cắt vượt ra khỏi rìa ảnh gốc
-                autoCropArea: 0.9, 
+                viewMode: 1,
+                autoCropArea: 0.9,
                 ready() {
-                    // Nếu ảnh này đã từng chỉnh vị trí trước đó, áp dụng lại
+                    // NẾU ẢNH NÀY ĐÃ CÓ DỮ LIỆU KHUNG CẮT RIÊNG -> ÁP DỤNG LẠI CHÍNH XÁC VỊ TRÍ ĐÓ
                     if (cropDataStorage[index]) {
                         cropper.setData(cropDataStorage[index]);
                     }
+                },
+                cropend() {
+                    // Lắng nghe hành vi kéo thả kết thúc, cập nhật liên tục tọa độ vào bộ nhớ riêng
+                    cropDataStorage[currentIndex] = cropper.getData();
+                },
+                zoom() {
+                    // Cập nhật khi người dùng cuộn chuột phóng to/thu nhỏ ảnh
+                    setTimeout(() => {
+                        cropDataStorage[currentIndex] = cropper.getData();
+                    }, 50);
                 }
             });
         };
         reader.readAsDataURL(file);
         
-        // Cập nhật lại giao diện danh sách bên lề
+        // Cập nhật class active trong menu danh sách
         Array.from(fileList.children).forEach((child, i) => {
-            child.className = `file-item ${i === index ? 'active' : ''}`;
+            if (i === index) {
+                child.classList.add('active');
+            } else {
+                child.classList.remove('active');
+            }
         });
     }
 
-    // Nút lưu và chuyển sang ảnh tiếp theo
+    // Điều hướng các nút qua lại giữa các ảnh
     nextBtn.addEventListener('click', function() {
-        cropDataStorage[currentIndex] = cropper.getData(); // Lưu dữ liệu ảnh hiện tại
+        saveCurrentCropData();
         currentIndex = (currentIndex + 1) % filesArray.length;
         initCropper(currentIndex);
     });
 
-    // 4. Xử lý tệp Watermark độc lập
+    prevBtn.addEventListener('click', function() {
+        saveCurrentCropData();
+        currentIndex = (currentIndex - 1 + filesArray.length) % filesArray.length;
+        initCropper(currentIndex);
+    });
+
+    // Xử lý tệp Watermark độc lập
     watermarkInput.addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (!file) return;
@@ -345,28 +399,27 @@
         reader.readAsDataURL(file);
     });
 
-    // 5. XỬ LÝ XUẤT ẢNH HÀNG LOẠT VÀ ĐÓNG DẤU WATERMARK (.PNG)
+    // XỬ LÝ ĐỒNG LOẠT XUẤT ẢNH THEO TỌA ĐỘ RIÊNG BIỆT CỦA TỪNG TẤM (.PNG)
     downloadAllBtn.addEventListener('click', async function() {
         if (filesArray.length === 0) {
             alert('Vui lòng chọn ít nhất một hình ảnh!');
             return;
         }
 
-        // Lưu dữ liệu của bức ảnh hiện tại đang mở trên màn hình
-        if (cropper) {
-            cropDataStorage[currentIndex] = cropper.getData();
-        }
+        // Đảm bảo lưu lại ảnh cuối cùng đang hiển thị trên màn hình
+        saveCurrentCropData();
 
         downloadAllBtn.innerText = "⏳ Đang xử lý hàng loạt...";
         downloadAllBtn.disabled = true;
 
+        // Chạy vòng lặp đồng bộ xử lý từng file một theo đúng vị trí đã lưu
         for (let i = 0; i < filesArray.length; i++) {
             await processAndDownload(i);
         }
 
-        downloadAllBtn.innerText = "Xử Lý & Tải Toàn Bộ Dạng .PNG";
+        downloadAllBtn.innerText = "Xử Lý & Tải Toàn Bộ (.PNG)";
         downloadAllBtn.disabled = false;
-        alert("Đã xử lý xong toàn bộ ảnh!");
+        alert("Đã hoàn tất cắt và tải xuống toàn bộ danh sách ảnh!");
     });
 
     function processAndDownload(index) {
@@ -379,18 +432,18 @@
                 tempImg.src = e.target.result;
                 
                 tempImg.onload = function() {
-                    // Tạo một canvas ẩn để tự render vẽ ảnh theo vị trí đã chọn
                     const canvas = document.createElement('canvas');
                     const ctx = canvas.getContext('2d');
                     
+                    // Lấy ra đúng tọa độ ĐÃ LƯU RIÊNG của ảnh này, nếu chưa chỉnh sẽ lấy toàn bộ ảnh gốc
                     const data = cropDataStorage[index] || {
                         x: 0, y: 0, width: tempImg.naturalWidth, height: tempImg.naturalHeight
                     };
 
-                    // Thiết lập kích cỡ pixel xuất ra
                     let targetWidth = data.width;
                     let targetHeight = data.height;
 
+                    // Nếu chọn pixel cố định
                     if (aspectRatioSelect.value === 'custom') {
                         targetWidth = parseInt(document.getElementById('outWidth').value) || data.width;
                         targetHeight = parseInt(document.getElementById('outHeight').value) || data.height;
@@ -399,23 +452,22 @@
                     canvas.width = targetWidth;
                     canvas.height = targetHeight;
 
-                    // Tiến hành vẽ ảnh đã cắt lên canvas
+                    // Thực hiện vẽ phần ảnh đã cắt theo tọa độ riêng của tấm ảnh đó
                     ctx.drawImage(
                         tempImg,
-                        data.x, data.y, data.width, data.height, // Tọa độ cắt từ ảnh gốc
-                        0, 0, targetWidth, targetHeight          // Kích thước vẽ vào canvas mới
+                        data.x, data.y, data.width, data.height, 
+                        0, 0, targetWidth, targetHeight          
                     );
 
-                    // Nếu có cài đặt watermark -> Tiến hành vẽ đè đè lên canvas
+                    // Đóng dấu watermark nếu có
                     if (watermarkImage) {
                         const wmPercent = parseFloat(document.getElementById('wmSize').value) / 100;
-                        // Tính toán kích thước watermark dựa theo tỷ lệ ảnh rộng/dài
                         let wmWidth = canvas.width * wmPercent;
                         let wmHeight = (watermarkImage.height / watermarkImage.width) * wmWidth;
 
                         let wmX = 0, wmY = 0;
                         const pos = document.getElementById('wmPosition').value;
-                        const margin = canvas.width * 0.02; // Cách lề 2% diện tích ảnh
+                        const margin = canvas.width * 0.02; 
 
                         if (pos === 'bottom-right') {
                             wmX = canvas.width - wmWidth - margin;
@@ -437,10 +489,8 @@
                         ctx.drawImage(watermarkImage, wmX, wmY, wmWidth, wmHeight);
                     }
 
-                    // Xuất Canvas thành File ảnh định dạng mã hóa PNG
+                    // Xuất tệp PNG
                     const dataUrl = canvas.toDataURL('image/png');
-                    
-                    // Tạo lệnh tải tự động xuống máy tính
                     const link = document.createElement('a');
                     const originalName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
                     link.download = `${originalName}_cropped.png`;
